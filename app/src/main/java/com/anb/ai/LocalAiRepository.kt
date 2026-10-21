@@ -138,13 +138,23 @@ class LocalAiRepository {
         }
     }
 
-    suspend fun ask(question: String): String = withContext(Dispatchers.IO) {
+    suspend fun ask(
+        question: String,
+        onPartial: (String) -> Unit
+    ): String = withContext(Dispatchers.IO) {
         mutex.withLock {
             val activeConversation = conversation
                 ?: throw IllegalStateException("Local AI is not started yet.")
             val answer = StringBuilder()
-            activeConversation.sendMessageAsync(question).collect { partialMessage ->
+            activeConversation.sendMessageAsync(
+                question,
+                maxOutputToken = 64
+            ).collect { partialMessage ->
                 answer.append(partialMessage.toString())
+                val current = answer.toString()
+                withContext(Dispatchers.Main) {
+                    onPartial(current)
+                }
             }
             answer.toString().trim().ifBlank {
                 "Model ne koi text response nahi diya. Dobara try karein."

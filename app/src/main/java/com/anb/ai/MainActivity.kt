@@ -260,12 +260,15 @@ fun ANBHome() {
                         input = ""
                         busy = true
                         scope.launch {
+                            messages = messages + ChatMessage("", false)
                             try {
-                                val answer = repository.ask(question)
-                                messages = messages + ChatMessage(answer, false)
+                                val answer = repository.ask(question) { partial ->
+                                    messages = messages.dropLast(1) + ChatMessage(partial, false)
+                                }
+                                messages = messages.dropLast(1) + ChatMessage(answer, false)
                                 status = "Local AI ready."
                             } catch (error: Exception) {
-                                messages = messages + ChatMessage(
+                                messages = messages.dropLast(1) + ChatMessage(
                                     "Local AI error: ${error.message ?: "Please try again."}",
                                     false
                                 )
