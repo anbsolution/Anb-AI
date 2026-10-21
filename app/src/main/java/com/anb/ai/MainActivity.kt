@@ -153,6 +153,7 @@ fun ANBHome() {
     val context = LocalContext.current
     val repository = remember { LocalAiRepository() }
     val scope = rememberCoroutineScope()
+    val settings = remember { context.getSharedPreferences("anb_ai_settings", android.content.Context.MODE_PRIVATE) }
     var input by remember { mutableStateOf("") }
     var historySearch by remember { mutableStateOf("") }
     var modelReady by remember { mutableStateOf(repository.isModelDownloaded(context)) }
@@ -160,10 +161,10 @@ fun ANBHome() {
     var busy by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableIntStateOf(0) }
     var currentTab by remember { mutableStateOf("Home") }
-    var soundOn by remember { mutableStateOf(true) }
-    var vibrationOn by remember { mutableStateOf(true) }
-    var animationsOn by remember { mutableStateOf(true) }
-    var offlineOn by remember { mutableStateOf(true) }
+    var soundOn by remember { mutableStateOf(settings.getBoolean("sound_effects", true)) }
+    var vibrationOn by remember { mutableStateOf(settings.getBoolean("vibration", true)) }
+    var animationsOn by remember { mutableStateOf(settings.getBoolean("animations", true)) }
+    var offlineOn by remember { mutableStateOf(settings.getBoolean("offline_first", true)) }
     var status by remember {
         mutableStateOf(
             if (modelReady) "Model downloaded. Start local AI to begin." else "Local model not downloaded yet."
@@ -699,13 +700,13 @@ fun ANBHome() {
                                 colors = CardDefaults.cardColors(containerColor = panel)
                             ) {
                                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                    SettingSwitchRow("Sound effects", "App sound preferences", soundOn, { soundOn = it }, gold, textMain, textSub)
+                                    SettingSwitchRow("Sound effects", "App sound preferences", soundOn, { value -> soundOn = value; settings.edit().putBoolean("sound_effects", value).apply() }, gold, textMain, textSub)
                                     HorizontalDivider(color = Color(0xFF244775))
-                                    SettingSwitchRow("Vibration", "Haptic feedback preference", vibrationOn, { vibrationOn = it }, gold, textMain, textSub)
+                                    SettingSwitchRow("Vibration", "Haptic feedback preference", vibrationOn, { value -> vibrationOn = value; settings.edit().putBoolean("vibration", value).apply() }, gold, textMain, textSub)
                                     HorizontalDivider(color = Color(0xFF244775))
-                                    SettingSwitchRow("Animations", "Interface motion preference", animationsOn, { animationsOn = it }, gold, textMain, textSub)
+                                    SettingSwitchRow("Animations", "Interface motion preference", animationsOn, { value -> animationsOn = value; settings.edit().putBoolean("animations", value).apply() }, gold, textMain, textSub)
                                     HorizontalDivider(color = Color(0xFF244775))
-                                    SettingSwitchRow("Offline-first", "Keep chat history on this phone", offlineOn, { offlineOn = it }, gold, textMain, textSub)
+                                    SettingSwitchRow("Offline-first", "Keep chat history on this phone", offlineOn, { value -> offlineOn = value; settings.edit().putBoolean("offline_first", value).apply() }, gold, textMain, textSub)
                                 }
                             }
                         }
