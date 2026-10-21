@@ -196,11 +196,45 @@ fun ANBHome() {
             }
         }
 
+        // ANB_VOICE_COMMANDS_V14: shared send action for the Send button and voice commands.
+        val sendMessage: () -> Unit = {
+            val question = input.trim()
+            if (question.isNotEmpty() && aiLoaded && !busy) {
+                messages = messages + ChatMessage(question, true)
+                input = ""
+                busy = true
+                scope.launch {
+                    messages = messages + ChatMessage("", false)
+                    try {
+                        val answer = repository.ask(question) { partial ->
+                            messages = messages.dropLast(1) + ChatMessage(partial, false)
+                        }
+                        messages = messages.dropLast(1) + ChatMessage(answer, false)
+                        status = "Local AI ready."
+                    } catch (error: Exception) {
+                        messages = messages.dropLast(1) + ChatMessage(
+                            "Local AI error: ${error.message ?: "Please try again."}",
+                            false
+                        )
+                        status = "Local AI request failed. You can retry."
+                    } finally {
+                        busy = false
+                    }
+                }
+            } else if (question.isBlank()) {
+                status = "Pehle apna sawal boliye ya type karein."
+            } else if (!aiLoaded) {
+                status = "Pehle local AI start karein."
+            }
+        }
+
         VoiceControls(
             enabled = aiLoaded,
             latestReply = messages.lastOrNull { !it.isUser && it.text.isNotBlank() }?.text.orEmpty(),
             onRecognized = { spoken ->
                 when (spoken.trim().lowercase()) {
+                    // ANB_VOICE_COMMANDS_V14: explicit send command; no always-listening mode.
+                    "send", "send it", "bhej do", "bhejo", "भेज दो", "भेजो" -> sendMessage()
                     "new chat", "naya chat", "नई चैट", "clear chat", "chat saaf karo" -> {
                         messages = listOf(
                             ChatMessage("Namaste! Main ANB AI hoon. Naya chat shuru karein.", false)
@@ -210,7 +244,7 @@ fun ANBHome() {
                     }
                     else -> {
                         input = spoken
-                        status = "Voice text ready. Send dabakar ANB AI se poochhein."
+                        status = "Voice text ready. Send dabayein, ya 'bhej do' bolkar send karein."
                     }
                 }
             }
@@ -273,32 +307,7 @@ fun ANBHome() {
             )
             Spacer(Modifier.width(8.dp))
             Button(
-                onClick = {
-                    val question = input.trim()
-                    if (question.isNotEmpty() && aiLoaded && !busy) {
-                        messages = messages + ChatMessage(question, true)
-                        input = ""
-                        busy = true
-                        scope.launch {
-                            messages = messages + ChatMessage("", false)
-                            try {
-                                val answer = repository.ask(question) { partial ->
-                                    messages = messages.dropLast(1) + ChatMessage(partial, false)
-                                }
-                                messages = messages.dropLast(1) + ChatMessage(answer, false)
-                                status = "Local AI ready."
-                            } catch (error: Exception) {
-                                messages = messages.dropLast(1) + ChatMessage(
-                                    "Local AI error: ${error.message ?: "Please try again."}",
-                                    false
-                                )
-                                status = "Local AI request failed. You can retry."
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    }
-                },
+                onClick = { sendMessage() },
                 enabled = aiLoaded && input.isNotBlank() && !busy,
                 shape = CircleShape,
                 contentPadding = PaddingValues(0.dp),
