@@ -144,7 +144,7 @@ class LocalAiRepository {
                 ?: throw IllegalStateException("Local AI is not started yet.")
             val answer = StringBuilder()
             activeConversation.sendMessageAsync(question).collect { partialMessage ->
-                answer.append(partialMessage.text)
+                answer.append(partialMessage.toString())
             }
             answer.toString().trim().ifBlank {
                 "Model ne koi text response nahi diya. Dobara try karein."
