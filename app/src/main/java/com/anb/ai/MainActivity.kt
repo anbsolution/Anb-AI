@@ -29,6 +29,104 @@ private val TextMuted = Color(0xFFA0ADA5)
 
 data class ChatMessage(val text: String, val isUser: Boolean)
 
+// ANB_ALL_CHAT_MEMORY_V15: complete transcript is stored only in app-private filesDir.
+// No message-count cap is applied. Android may remove this data if the app is uninstalled.
+private const val ALL_CHAT_HISTORY_FILE = "anb-ai-chat-history.json"
+
+private fun loadAllChatHistory(context: android.content.Context): List<ChatMessage> {
+    val file = java.io.File(context.filesDir, ALL_CHAT_HISTORY_FILE)
+    if (!file.isFile) return listOf(
+        ChatMessage(
+            "Namaste! Main ANB AI hoon. Aapki chat history isi phone par local save rahegi.",
+            false
+        )
+    )
+    return try {
+        val array = org.json.JSONArray(file.readText(Charsets.UTF_8))
+        val result = (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            ChatMessage(item.optString("text", ""), item.optBoolean("isUser", false))
+        }
+        result.ifEmpty { listOf(ChatMessage("Namaste! Main ANB AI hoon.", false)) }
+    } catch (_: Exception) {
+        listOf(ChatMessage("Saved chat history read nahi ho paayi. Nayi chat shuru kar sakte hain.", false))
+    }
+}
+
+private fun saveAllChatHistory(context: android.content.Context, messages: List<ChatMessage>) {
+    val array = org.json.JSONArray()
+    messages.forEach { message ->
+        val item = org.json.JSONObject()
+        item.put("text", message.text)
+        item.put("isUser", message.isUser)
+        array.put(item)
+    }
+    val file = java.io.File(context.filesDir, ALL_CHAT_HISTORY_FILE)
+    val temporary = java.io.File(context.filesDir, "$ALL_CHAT_HISTORY_FILE.tmp")
+    try {
+        temporary.writeText(array.toString(), Charsets.UTF_8)
+        if (!temporary.renameTo(file)) {
+            file.writeText(temporary.readText(Charsets.UTF_8), Charsets.UTF_8)
+            temporary.delete()
+        }
+    } catch (_: Exception) {
+        temporary.delete()
+    }
+}
+
+/** Keyword retrieval over the complete local transcript; no cloud service is used. */
+private fun buildMemoryPrompt(question: String, history: List<ChatMessage>): String {
+    if (history.isEmpty()) return question
+    val stopWords = setOf(
+        "the", "and", "for", "with", "that", "this", "what", "when", "where",
+        "have", "from", "about", "your", "you", "are", "was", "were", "did",
+        "hai", "hain", "tha", "thi", "aur", "kya", "kaise", "kab", "kahan",
+        "mujhe", "batao", "bata", "mere", "meri", "mera", "pichle", "baat",
+        "mein", "ke", "ki", "ka", "ko", "se", "par", "to"
+    )
+    val terms = Regex("[\\p{L}\\p{N}]{2,}")
+        .findAll(question.lowercase()).map { it.value }
+        .filter { it !in stopWords }.toSet()
+    if (terms.isEmpty()) return question
+
+    val scored = history.mapIndexedNotNull { index, message ->
+        val words = Regex("[\\p{L}\\p{N}]{2,}")
+            .findAll(message.text.lowercase()).map { it.value }.toSet()
+        val score = terms.count { it in words }
+        if (score > 0) index to score else null
+    }
+    val selected = linkedSetOf<Int>()
+    (maxOf(0, history.size - 4) until history.size).forEach { selected.add(it) }
+    scored.sortedWith(compareByDescending<Pair<Int, Int>> { it.second }.thenByDescending { it.first })
+        .take(8)
+        .forEach { (index, _) ->
+            selected.add(index)
+            if (index > 0) selected.add(index - 1)
+            if (index + 1 < history.size) selected.add(index + 1)
+        }
+
+    val excerpts = selected.sorted().takeLast(18).map { index ->
+        val message = history[index]
+        val role = if (message.isUser) "User" else "ANB AI"
+        "$role: ${message.text.replace(Regex("\\s+"), " ").take(500)}"
+    }
+    val contextText = excerpts.joinToString("\n").take(4500)
+    val promptLines = listOf(
+        "You are ANB AI. Use the relevant saved conversation excerpts below when answering.",
+        "If asked what the user said, asked, preferred, or what you answered earlier, use only evidence in these excerpts.",
+        "Do not invent details that are not present. If the history does not contain the requested detail, say you could not find it in saved conversation.",
+        "Use Hindi/Hinglish if the current question is Hindi/Hinglish.",
+        "",
+        "Relevant saved conversation excerpts:",
+        contextText,
+        "",
+        "Current question:",
+        question
+    )
+    return promptLines.joinToString("\n")
+}
+
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,16 +160,13 @@ fun ANBHome() {
         mutableStateOf(
             if (modelReady) "Model downloaded. Start local AI to begin." else "Local model not downloaded yet."
         )
-    }
-    var messages by remember {
-        mutableStateOf(
-            listOf(
-                ChatMessage(
-                    "Namaste! Main ANB AI hoon. Version 1.1 mein AI aapke phone par run karega. Shuru karne ke liye local model download karein.",
-                    false
-                )
-            )
-        )
+    }    // ANB_ALL_CHAT_MEMORY_V15: restore the complete locally saved transcript.
+    var messages by remember { mutableStateOf(loadAllChatHistory(context)) }
+
+    LaunchedEffect(messages) {
+        // Debounce streaming updates so each generated token does not rewrite the whole file.
+        kotlinx.coroutines.delay(350)
+        saveAllChatHistory(context, messages)
     }
 
     DisposableEffect(repository) {
@@ -199,14 +294,16 @@ fun ANBHome() {
         // ANB_VOICE_COMMANDS_V14: shared send action for the Send button and voice commands.
         val sendMessage: () -> Unit = {
             val question = input.trim()
+            val historyBeforeQuestion = messages
             if (question.isNotEmpty() && aiLoaded && !busy) {
+                val prompt = buildMemoryPrompt(question, historyBeforeQuestion)
                 messages = messages + ChatMessage(question, true)
                 input = ""
                 busy = true
                 scope.launch {
                     messages = messages + ChatMessage("", false)
                     try {
-                        val answer = repository.ask(question) { partial ->
+                        val answer = repository.ask(prompt) { partial ->
                             messages = messages.dropLast(1) + ChatMessage(partial, false)
                         }
                         messages = messages.dropLast(1) + ChatMessage(answer, false)
@@ -236,11 +333,11 @@ fun ANBHome() {
                     // ANB_VOICE_COMMANDS_V14: explicit send command; no always-listening mode.
                     "send", "send it", "bhej do", "bhejo", "भेज दो", "भेजो" -> sendMessage()
                     "new chat", "naya chat", "नई चैट", "clear chat", "chat saaf karo" -> {
-                        messages = listOf(
-                            ChatMessage("Namaste! Main ANB AI hoon. Naya chat shuru karein.", false)
-                        )
+                        // Keep old messages: preserve all prior chat history.
+                        messages = messages + ChatMessage("— New chat —", false) +
+                            ChatMessage("Namaste! Naya chat shuru karein. Purani chat history saved rahegi.", false)
                         input = ""
-                        status = "New chat ready."
+                        status = "New chat started. Previous history is preserved."
                     }
                     else -> {
                         input = spoken
