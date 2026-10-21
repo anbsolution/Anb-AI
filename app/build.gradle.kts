@@ -12,11 +12,9 @@ android {
         applicationId = "com.anb.ai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
-
-        testInstrumentationRunner =
-            "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 2
+        versionName = "1.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -46,8 +44,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
-
     testImplementation("junit:junit:4.13.2")
 }
