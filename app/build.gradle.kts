@@ -12,8 +12,8 @@ android {
         applicationId = "com.anb.ai"
         minSdk = 26
         targetSdk = 35
-        versionCode = maxOf(6, System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 5)
-        versionName = "1.6.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}" // ANB_ROYAL_THEME_V16
+        versionCode = maxOf(7, System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 5)
+        versionName = "1.7.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}" // ANB_ROYAL_UI_V17GITHUB_RUN_NUMBER") ?: "0"}" // ANB_ROYAL_THEME_V16
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
