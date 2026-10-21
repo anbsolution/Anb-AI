@@ -170,7 +170,38 @@ fun ANBHome() {
         )
     }
     // ANB_ALL_CHAT_MEMORY_V15: restore and preserve the full local transcript.
-    var messages by remember { mutableStateOf(loadAllChatHistory(context)) }
+    var messages by remember { mutableStateOf(loadAllChatHistory(context)) }\n    // ANB_AI_CHAT_RESTORE_V22: restore a previously exported ANB AI transcript.
+    val restoreChatLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val raw = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader(Charsets.UTF_8)
+                    ?.use { it.readText() }
+                    ?: throw IllegalStateException("Could not read selected backup")
+                val parsed = raw.lineSequence().mapNotNull { line ->
+                    when {
+                        line.startsWith("You: ") -> line.removePrefix("You: ").takeIf { it.isNotBlank() }
+                            ?.let { ChatMessage(it, true) }
+                        line.startsWith("ANB AI: ") -> line.removePrefix("ANB AI: ").takeIf { it.isNotBlank() }
+                            ?.let { ChatMessage(it, false) }
+                        else -> null
+                    }
+                }.toList()
+                if (parsed.isEmpty()) {
+                    status = "Backup file had no readable chat messages."
+                } else {
+                    messages = parsed
+                    saveAllChatHistory(context, messages)
+                    status = "Chat backup restored: ${parsed.size} messages."
+                }
+            } catch (_: Exception) {
+                status = "Could not restore this file. Choose a text file exported from ANB AI."
+            }
+        }
+    }
+
     val visibleMessages = if (historySearch.isBlank()) messages else messages.filter { it.text.contains(historySearch.trim(), ignoreCase = true) }
 
     LaunchedEffect(messages) {
@@ -715,6 +746,21 @@ fun ANBHome() {
                                     ) {
                                         Text("Export / Share Chat Backup", color = gold, fontWeight = FontWeight.Bold)
                                     }
+                                    Spacer(Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { restoreChatLauncher.launch("text/*") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, gold)
+                                    ) {
+                                        Text("Restore Chat Backup", color = gold, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(
+                                        "Restoring replaces the current transcript. Choose an ANB AI text backup; multi-line messages may be split.",
+                                        color = textSub,
+                                        fontSize = 10.sp,
+                                        lineHeight = 14.sp
+                                    )
                                     Text(
                                         "Backup is shared only after you choose an app. Review the transcript before sending it anywhere.",
                                         color = textSub,
