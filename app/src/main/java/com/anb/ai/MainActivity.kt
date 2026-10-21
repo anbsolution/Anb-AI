@@ -107,12 +107,12 @@ private fun buildMemoryPrompt(question: String, history: List<ChatMessage>): Str
             if (index + 1 < history.size) selected.add(index + 1)
         }
 
-    val excerpts = selected.sorted().takeLast(18).map { index ->
+    val excerpts = selected.sorted().takeLast(10).map { index ->
         val message = history[index]
         val role = if (message.isUser) "User" else "ANB AI"
-        "$role: ${message.text.replace(Regex("\\s+"), " ").take(500)}"
+        "$role: ${message.text.replace(Regex("\\s+"), " ").take(320)}"
     }
-    val contextText = excerpts.joinToString("\n").take(4500)
+    val contextText = excerpts.joinToString("\n").take(2600)
     val promptLines = listOf(
         "You are ANB AI. Use the relevant saved conversation excerpts below when answering.",
         "If asked what the user said, asked, preferred, or what you answered earlier, use only evidence in these excerpts.",
@@ -252,7 +252,7 @@ fun ANBHome() {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(if (aiLoaded) "● READY" else "● ROYAL AI", color = gold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("v1.7", color = textSub, fontSize = 10.sp)
+                    Text("v1.8", color = textSub, fontSize = 10.sp)
                 }
             }
             HorizontalDivider(color = Color(0xFF244775), thickness = 1.dp)
