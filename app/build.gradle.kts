@@ -12,8 +12,8 @@ android {
         applicationId = "com.anb.ai"
         minSdk = 26
         targetSdk = 35
-        versionCode = maxOf(9, System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 9)
-        versionName = "1.9.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
+        versionCode = maxOf(10, System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 10)
+        versionName = "2.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

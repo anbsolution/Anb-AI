@@ -154,6 +154,7 @@ fun ANBHome() {
     val repository = remember { LocalAiRepository() }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
+    var historySearch by remember { mutableStateOf("") }
     var modelReady by remember { mutableStateOf(repository.isModelDownloaded(context)) }
     var aiLoaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -170,6 +171,7 @@ fun ANBHome() {
     }
     // ANB_ALL_CHAT_MEMORY_V15: restore and preserve the full local transcript.
     var messages by remember { mutableStateOf(loadAllChatHistory(context)) }
+    val visibleMessages = if (historySearch.isBlank()) messages else messages.filter { it.text.contains(historySearch.trim(), ignoreCase = true) }
 
     LaunchedEffect(messages) {
         kotlinx.coroutines.delay(350)
@@ -430,6 +432,40 @@ fun ANBHome() {
                             Spacer(Modifier.weight(1f))
                             Text("${messages.size} entries", color = textSub, fontSize = 10.sp)
                         }
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                                .background(panel, RoundedCornerShape(14.dp))
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⌕", color = gold, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(8.dp))
+                            BasicTextField(
+                                value = historySearch,
+                                onValueChange = { historySearch = it },
+                                modifier = Modifier.weight(1f),
+                                textStyle = LocalTextStyle.current.copy(color = textMain, fontSize = 13.sp),
+                                singleLine = true,
+                                decorationBox = { inner ->
+                                    Box {
+                                        if (historySearch.isEmpty()) {
+                                            Text("Search all saved chats...", color = textSub, fontSize = 13.sp)
+                                        }
+                                        inner()
+                                    }
+                                }
+                            )
+                            if (historySearch.isNotEmpty()) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "×",
+                                    color = gold,
+                                    fontSize = 20.sp,
+                                    modifier = Modifier.clickable { historySearch = "" }
+                                )
+                            }
+                        }
                         if (!aiLoaded) {
                             Card(colors = CardDefaults.cardColors(containerColor = panel), shape = RoundedCornerShape(16.dp)) {
                                 Column(Modifier.padding(14.dp)) {
@@ -446,7 +482,12 @@ fun ANBHome() {
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            items(messages) { message ->
+                            if (visibleMessages.isEmpty()) {
+                                item {
+                                    Text("No saved messages match this search.", color = textSub, fontSize = 12.sp)
+                                }
+                            }
+                            items(visibleMessages) { message ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
@@ -649,7 +690,7 @@ fun ANBHome() {
                             }
                         }
                         item {
-                            Text("ANB AI • Royal Edition 1.9", color = textSub, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            Text("ANB AI • Royal Edition 2.0", color = textSub, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
                 }
