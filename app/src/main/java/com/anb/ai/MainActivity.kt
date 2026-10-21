@@ -170,7 +170,8 @@ fun ANBHome() {
         )
     }
     // ANB_ALL_CHAT_MEMORY_V15: restore and preserve the full local transcript.
-    var messages by remember { mutableStateOf(loadAllChatHistory(context)) }\n    // ANB_AI_CHAT_RESTORE_V22: restore a previously exported ANB AI transcript.
+    var messages by remember { mutableStateOf(loadAllChatHistory(context)) }
+    // ANB_AI_CHAT_RESTORE_V22: restore a previously exported ANB AI transcript.
     val restoreChatLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
