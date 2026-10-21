@@ -21,11 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-private val Background = Color(0xFF0B100E)
-private val SurfaceDark = Color(0xFF151D19)
-private val Green = Color(0xFF52E59A)
-private val TextPrimary = Color(0xFFF1F5F2)
-private val TextMuted = Color(0xFFA0ADA5)
+private val Background = Color(0xFF06152F)
+private val SurfaceDark = Color(0xFF0C2345)
+private val Green = Color(0xFFFFC857)
+private val TextPrimary = Color(0xFFF7F3E8)
+private val TextMuted = Color(0xFFB5C5DD) // ANB_ROYAL_THEME_V16
 
 data class ChatMessage(val text: String, val isUser: Boolean)
 
@@ -189,12 +189,12 @@ fun ANBHome() {
                 modifier = Modifier.size(46.dp).background(Green, RoundedCornerShape(15.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("A", color = Background, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                Text("♛", color = Background, fontSize = 27.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("ANB AI", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text("PERSONAL ASSISTANT", fontSize = 10.sp, color = TextMuted, letterSpacing = 1.5.sp)
+                Text("ROYAL PERSONAL ASSISTANT", fontSize = 9.sp, color = TextMuted, letterSpacing = 1.1.sp)
             }
             Text(
                 if (aiLoaded) "● LOCAL AI" else "● LOCAL MODE",
@@ -203,12 +203,12 @@ fun ANBHome() {
             )
         }
 
-        HorizontalDivider(color = Color(0xFF26332B))
+        HorizontalDivider(color = Color(0xFF34547C)) // ANB_ROYAL_THEME_V16
 
         Column(modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 12.dp)) {
             Text("Aapka personal AI.", color = TextPrimary, fontSize = 27.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text("Private, on-device AI assistant.", color = TextMuted, fontSize = 14.sp)
+            Text("Royal Blue • Royal Gold • On-device AI", color = TextMuted, fontSize = 13.sp)
         }
 
         if (!aiLoaded) {
