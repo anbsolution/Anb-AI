@@ -683,9 +683,44 @@ fun ANBHome() {
                                     Text("PRIVACY & MEMORY", color = gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                     Text("Saved transcript: ${messages.size} entries", color = textMain, fontWeight = FontWeight.Bold)
                                     Text("The complete conversation is stored in app-private local storage. Uninstalling the app may remove it.", color = textSub, fontSize = 12.sp, lineHeight = 18.sp)
-                                    Button(onClick = { currentTab = "Chat" }, colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = navy), modifier = Modifier.fillMaxWidth()) {
+                                    Button(
+                                        onClick = { currentTab = "Chat" },
+                                        colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = navy),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
                                         Text("Open chat history", fontWeight = FontWeight.Bold)
                                     }
+                                    Spacer(Modifier.height(8.dp))
+                                    // ANB_AI_CHAT_EXPORT_V21: share a user-requested plain-text transcript.
+                                    OutlinedButton(
+                                        onClick = {
+                                            val transcript = messages.joinToString("\\n\\n") { message ->
+                                                (if (message.isUser) "You" else "ANB AI") + ": " + message.text
+                                            }
+                                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(android.content.Intent.EXTRA_SUBJECT, "ANB AI chat backup")
+                                                putExtra(
+                                                    android.content.Intent.EXTRA_TEXT,
+                                                    "ANB AI — local chat backup\n\n" + transcript
+                                                )
+                                            }
+                                            context.startActivity(
+                                                android.content.Intent.createChooser(shareIntent, "Export ANB AI chat")
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, gold)
+                                    ) {
+                                        Text("Export / Share Chat Backup", color = gold, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(
+                                        "Backup is shared only after you choose an app. Review the transcript before sending it anywhere.",
+                                        color = textSub,
+                                        fontSize = 10.sp,
+                                        lineHeight = 14.sp
+                                    )
                                 }
                             }
                         }
