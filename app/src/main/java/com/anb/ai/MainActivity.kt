@@ -188,6 +188,7 @@ fun ANBHome() {
             messages = messages + ChatMessage(question, true)
             input = ""
             busy = true
+            AiBackgroundService.start(context)
             scope.launch {
                 messages = messages + ChatMessage("", false)
                 try {
@@ -203,6 +204,7 @@ fun ANBHome() {
                     status = "Local AI request failed. You can retry."
                 } finally {
                     busy = false
+                    AiBackgroundService.stop(context)
                 }
             }
         } else if (question.isBlank()) {
@@ -647,7 +649,7 @@ fun ANBHome() {
                             }
                         }
                         item {
-                            Text("ANB AI • Royal Edition 1.7", color = textSub, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            Text("ANB AI • Royal Edition 1.9", color = textSub, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
                 }
