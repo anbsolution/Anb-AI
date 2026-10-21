@@ -196,6 +196,26 @@ fun ANBHome() {
             }
         }
 
+        VoiceControls(
+            enabled = aiLoaded,
+            latestReply = messages.lastOrNull { !it.isUser && it.text.isNotBlank() }?.text.orEmpty(),
+            onRecognized = { spoken ->
+                when (spoken.trim().lowercase()) {
+                    "new chat", "naya chat", "नई चैट", "clear chat", "chat saaf karo" -> {
+                        messages = listOf(
+                            ChatMessage("Namaste! Main ANB AI hoon. Naya chat shuru karein.", false)
+                        )
+                        input = ""
+                        status = "New chat ready."
+                    }
+                    else -> {
+                        input = spoken
+                        status = "Voice text ready. Send dabakar ANB AI se poochhein."
+                    }
+                }
+            }
+        )
+
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
