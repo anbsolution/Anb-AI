@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = maxOf(12, System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 12)
-        versionName = "2.3.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
+        versionName = "2.4.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

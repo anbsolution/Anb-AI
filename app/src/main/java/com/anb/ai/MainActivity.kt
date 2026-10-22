@@ -19,15 +19,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-private val Background = Color(0xFF06152F)
-private val SurfaceDark = Color(0xFF0C2345)
-private val Green = Color(0xFFFFC857)
-private val TextPrimary = Color(0xFFF7F3E8)
-private val TextMuted = Color(0xFFB5C5DD) // ANB_ROYAL_THEME_V16
+private val Background = Color(0xFFF4F7FF)
+private val SurfaceDark = Color(0xFFFFFFFF)
+private val Green = Color(0xFF2457C5)
+private val TextPrimary = Color(0xFF172B4D)
+private val TextMuted = Color(0xFF657795) // ANB_ROYAL_THEME_V16
 
 data class ChatMessage(val text: String, val isUser: Boolean)
 
@@ -134,7 +135,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(
-                colorScheme = darkColorScheme(
+                colorScheme = lightColorScheme(
                     primary = Green,
                     background = Background,
                     surface = SurfaceDark,
@@ -154,6 +155,13 @@ fun ANBHome() {
     val repository = remember { LocalAiRepository() }
     val scope = rememberCoroutineScope()
     val settings = remember { context.getSharedPreferences("anb_ai_settings", android.content.Context.MODE_PRIVATE) }
+    val authRepository = remember { SupabaseAuthRepository(context) }
+    val onlineRepository = remember { OnlineAiRepository() }
+    var aiMode by remember { mutableStateOf(settings.getString("ai_mode", "local") ?: "local") }
+    var authEmail by remember { mutableStateOf("") }
+    var authPassword by remember { mutableStateOf("") }
+    var onlineSignedIn by remember { mutableStateOf(authRepository.hasSession()) }
+    var authStatus by remember { mutableStateOf("") }
     var input by remember { mutableStateOf("") }
     var historySearch by remember { mutableStateOf("") }
     var modelReady by remember { mutableStateOf(repository.isModelDownloaded(context)) }
@@ -218,7 +226,8 @@ fun ANBHome() {
     val sendMessage: () -> Unit = {
         val question = input.trim()
         val historyBeforeQuestion = messages
-        if (question.isNotEmpty() && aiLoaded && !busy) {
+        val canUseSelectedMode = (aiMode == "local" && aiLoaded) || (aiMode == "online" && onlineSignedIn)
+        if (question.isNotEmpty() && canUseSelectedMode && !busy) {
             val prompt = buildMemoryPrompt(question, historyBeforeQuestion)
             messages = messages + ChatMessage(question, true)
             input = ""
@@ -227,16 +236,21 @@ fun ANBHome() {
             scope.launch {
                 messages = messages + ChatMessage("", false)
                 try {
-                    val answer = repository.ask(prompt) { partial ->
-                        messages = messages.dropLast(1) + ChatMessage(partial, false)
+                    val answer: String = if (aiMode == "local") {
+                        repository.ask(prompt) { partial ->
+                            messages = messages.dropLast(1) + ChatMessage(partial, false)
+                        }
+                    } else {
+                        val accessToken = authRepository.getValidAccessToken()
+                        onlineRepository.ask(accessToken, prompt)
                     }
                     messages = messages.dropLast(1) + ChatMessage(answer, false)
-                    status = "Local AI ready."
+                    status = if (aiMode == "local") "Local AI ready." else "Online AI ready."
                 } catch (error: Exception) {
                     messages = messages.dropLast(1) + ChatMessage(
-                        "Local AI error: ${error.message ?: "Please try again."}", false
+                        "${if (aiMode == "local") "Local" else "Online"} AI error: ${error.message ?: "Please try again."}", false
                     )
-                    status = "Local AI request failed. You can retry."
+                    status = "${if (aiMode == "local") "Local" else "Online"} AI request failed. You can retry."
                 } finally {
                     busy = false
                     AiBackgroundService.stop(context)
@@ -244,22 +258,24 @@ fun ANBHome() {
             }
         } else if (question.isBlank()) {
             status = "Pehle apna sawal boliye ya type karein."
-        } else if (!aiLoaded) {
-            status = "Pehle local AI start karein."
+        } else if (aiMode == "local" && !aiLoaded) {
+            status = "Pehle Home se local AI start karein."
+        } else if (aiMode == "online" && !onlineSignedIn) {
+            status = "Online AI ke liye Settings mein login karein."
         }
     }
 
-    val navy = Color(0xFF04132D)
-    val panel = Color(0xFF0A2145)
-    val panelLight = Color(0xFF103263)
-    val gold = Color(0xFFFFD36A)
-    val goldDeep = Color(0xFFE8A928)
-    val brightBlue = Color(0xFF087BFF)
-    val textMain = Color(0xFFFFF8E9)
-    val textSub = Color(0xFFB8C9E5)
+    val navy = Color(0xFFF4F7FF)
+    val panel = Color(0xFFFFFFFF)
+    val panelLight = Color(0xFFEAF1FF)
+    val gold = Color(0xFF2457C5)
+    val goldDeep = Color(0xFF1B429B)
+    val brightBlue = Color(0xFF3C74D9)
+    val textMain = Color(0xFF172B4D)
+    val textSub = Color(0xFF657795)
 
     MaterialTheme(
-        colorScheme = darkColorScheme(
+        colorScheme = lightColorScheme(
             primary = gold, secondary = brightBlue, background = navy, surface = panel,
             onBackground = textMain, onSurface = textMain
         )
@@ -289,10 +305,10 @@ fun ANBHome() {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(if (aiLoaded) "● READY" else "● ROYAL AI", color = gold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("v1.8", color = textSub, fontSize = 10.sp)
+                    Text("v2.4", color = textSub, fontSize = 10.sp)
                 }
             }
-            HorizontalDivider(color = Color(0xFF244775), thickness = 1.dp)
+            HorizontalDivider(color = Color(0xFFDCE6F7), thickness = 1.dp)
 
             when (currentTab) {
                 "Home" -> {
@@ -306,7 +322,7 @@ fun ANBHome() {
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(24.dp),
                                 colors = CardDefaults.cardColors(containerColor = panel),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB98B32))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC8D7F2))
                             ) {
                                 Column(Modifier.fillMaxWidth().padding(18.dp)) {
                                     Text("✦  NAMASTE!", color = gold, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
@@ -339,7 +355,7 @@ fun ANBHome() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("QUICK ACCESS", color = gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
                                 Spacer(Modifier.width(8.dp))
-                                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFF244775))
+                                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFDCE6F7))
                             }
                         }
                         item {
@@ -357,7 +373,7 @@ fun ANBHome() {
                                                 modifier = Modifier.weight(1f).height(104.dp),
                                                 shape = RoundedCornerShape(18.dp),
                                                 colors = CardDefaults.cardColors(containerColor = panel),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF24518A))
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCE6F7))
                                             ) {
                                                 androidx.compose.foundation.layout.Box(
                                                     modifier = Modifier.fillMaxSize()
@@ -382,7 +398,7 @@ fun ANBHome() {
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(20.dp),
                                 colors = CardDefaults.cardColors(containerColor = panel),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF244775))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCE6F7))
                             ) {
                                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -499,14 +515,14 @@ fun ANBHome() {
                                 )
                             }
                         }
-                        if (!aiLoaded) {
+                        if ((aiMode == "local" && !aiLoaded) || (aiMode == "online" && !onlineSignedIn)) {
                             Card(colors = CardDefaults.cardColors(containerColor = panel), shape = RoundedCornerShape(16.dp)) {
                                 Column(Modifier.padding(14.dp)) {
-                                    Text("Start local AI from Home first.", color = textMain, fontWeight = FontWeight.Bold)
+                                    Text(if (aiMode == "local") "Start local AI from Home first." else "Online AI ke liye Settings mein sign in karein.", color = textMain, fontWeight = FontWeight.Bold)
                                     Spacer(Modifier.height(5.dp))
                                     Text("Your saved conversation will be restored when you return.", color = textSub, fontSize = 12.sp)
                                     Spacer(Modifier.height(8.dp))
-                                    Button(onClick = { currentTab = "Home" }, colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = navy)) { Text("Go to Home") }
+                                    Button(onClick = { currentTab = if (aiMode == "local") "Home" else "Settings" }, colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = navy)) { Text(if (aiMode == "local") "Go to Home" else "Open Settings") }
                                 }
                             }
                         }
@@ -528,7 +544,7 @@ fun ANBHome() {
                                     Column(
                                         modifier = Modifier.widthIn(max = 310.dp)
                                             .background(
-                                                if (message.isUser) Color(0xFF0759C7) else panel,
+                                                if (message.isUser) Color(0xFFE4EDFF) else panel,
                                                 RoundedCornerShape(18.dp)
                                             )
                                             .then(
@@ -536,7 +552,7 @@ fun ANBHome() {
                                             )
                                             .padding(horizontal = 14.dp, vertical = 12.dp)
                                     ) {
-                                        Text(if (message.isUser) "YOU" else "ANB AI", color = if (message.isUser) Color(0xFFDCEBFF) else gold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (message.isUser) "YOU" else "ANB AI", color = if (message.isUser) Color(0xFF2457C5) else gold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.height(4.dp))
                                         Text(message.text, color = textMain, fontSize = 14.sp, lineHeight = 21.sp)
                                     }
@@ -552,7 +568,7 @@ fun ANBHome() {
                         ) {
                             BasicTextField(
                                 value = input, onValueChange = { input = it },
-                                enabled = aiLoaded && !busy,
+                                enabled = ((aiMode == "local" && aiLoaded) || (aiMode == "online" && onlineSignedIn)) && !busy,
                                 modifier = Modifier.weight(1f).padding(vertical = 10.dp),
                                 textStyle = LocalTextStyle.current.copy(color = textMain, fontSize = 14.sp),
                                 singleLine = true,
@@ -566,7 +582,7 @@ fun ANBHome() {
                             Spacer(Modifier.width(6.dp))
                             Button(
                                 onClick = { sendMessage() },
-                                enabled = aiLoaded && input.isNotBlank() && !busy,
+                                enabled = ((aiMode == "local" && aiLoaded) || (aiMode == "online" && onlineSignedIn)) && input.isNotBlank() && !busy,
                                 shape = CircleShape, contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier.size(44.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = navy)
@@ -583,7 +599,7 @@ fun ANBHome() {
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(22.dp),
                             colors = CardDefaults.cardColors(containerColor = panel),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB98B32))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC8D7F2))
                         ) {
                             Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("VOICE ASSISTANT", color = gold, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
@@ -645,7 +661,7 @@ fun ANBHome() {
                                 },
                                 shape = RoundedCornerShape(17.dp),
                                 colors = CardDefaults.cardColors(containerColor = panel),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF244775))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDCE6F7))
                             ) {
                                 Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(Modifier.size(44.dp).background(panelLight, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
@@ -678,7 +694,7 @@ fun ANBHome() {
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(20.dp),
                                 colors = CardDefaults.cardColors(containerColor = panel),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB98B32))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC8D7F2))
                             ) {
                                 Column(Modifier.padding(16.dp)) {
                                     Text("APPEARANCE", color = gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
@@ -701,12 +717,108 @@ fun ANBHome() {
                             ) {
                                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                                     SettingSwitchRow("Sound effects", "App sound preferences", soundOn, { value -> soundOn = value; settings.edit().putBoolean("sound_effects", value).apply() }, gold, textMain, textSub)
-                                    HorizontalDivider(color = Color(0xFF244775))
+                                    HorizontalDivider(color = Color(0xFFDCE6F7))
                                     SettingSwitchRow("Vibration", "Haptic feedback preference", vibrationOn, { value -> vibrationOn = value; settings.edit().putBoolean("vibration", value).apply() }, gold, textMain, textSub)
-                                    HorizontalDivider(color = Color(0xFF244775))
+                                    HorizontalDivider(color = Color(0xFFDCE6F7))
                                     SettingSwitchRow("Animations", "Interface motion preference", animationsOn, { value -> animationsOn = value; settings.edit().putBoolean("animations", value).apply() }, gold, textMain, textSub)
-                                    HorizontalDivider(color = Color(0xFF244775))
+                                    HorizontalDivider(color = Color(0xFFDCE6F7))
                                     SettingSwitchRow("Offline-first", "Keep chat history on this phone", offlineOn, { value -> offlineOn = value; settings.edit().putBoolean("offline_first", value).apply() }, gold, textMain, textSub)
+                                }
+                            }
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = panel),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF24518A))
+                            ) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("AI MODE", color = gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                                    Text("Choose how ANB AI answers", color = textMain, fontWeight = FontWeight.Bold)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { aiMode = "local"; settings.edit().putString("ai_mode", "local").apply(); authStatus = "Local AI selected; internet/API not required." },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(containerColor = if (aiMode == "local") gold else panelLight, contentColor = if (aiMode == "local") navy else textMain)
+                                        ) { Text("Local AI") }
+                                        Button(
+                                            onClick = { aiMode = "online"; settings.edit().putString("ai_mode", "online").apply(); authStatus = if (onlineSignedIn) "Online AI selected." else "Sign in below to use Online AI." },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(containerColor = if (aiMode == "online") gold else panelLight, contentColor = if (aiMode == "online") navy else textMain)
+                                        ) { Text("Online AI") }
+                                    }
+                                    Text("Online AI sends the prompt and selected memory context to the ANB backend. Local AI stays on this phone.", color = textSub, fontSize = 11.sp, lineHeight = 16.sp)
+                                    HorizontalDivider(color = Color(0xFF244775))
+                                    Text("ONLINE AI ACCOUNT", color = gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                                    OutlinedTextField(
+                                        value = authEmail,
+                                        onValueChange = { authEmail = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        label = { Text("Email") }
+                                    )
+                                    OutlinedTextField(
+                                        value = authPassword,
+                                        onValueChange = { authPassword = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        label = { Text("Password") }
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = {
+                                                scope.launch {
+                                                    try {
+                                                        authStatus = "Creating account..."
+                                                        authStatus = authRepository.signUp(authEmail.trim(), authPassword)
+                                                        onlineSignedIn = authRepository.hasSession()
+                                                        if (onlineSignedIn) { authPassword = ""; aiMode = "online"; settings.edit().putString("ai_mode", "online").apply() }
+                                                    } catch (error: Exception) { authStatus = error.message ?: "Sign-up failed." }
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = authEmail.contains("@") && authPassword.length >= 8,
+                                            colors = ButtonDefaults.buttonColors(containerColor = gold, contentColor = navy)
+                                        ) { Text("Create account") }
+                                        OutlinedButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    try {
+                                                        authStatus = "Signing in..."
+                                                        authRepository.signIn(authEmail.trim(), authPassword)
+                                                        onlineSignedIn = authRepository.hasSession()
+                                                        authPassword = ""
+                                                        aiMode = "online"
+                                                        settings.edit().putString("ai_mode", "online").apply()
+                                                        authStatus = "Signed in. Online AI is ready."
+                                                    } catch (error: Exception) { onlineSignedIn = authRepository.hasSession(); authStatus = error.message ?: "Sign-in failed." }
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = authEmail.contains("@") && authPassword.isNotEmpty(),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, gold)
+                                        ) { Text("Sign in", color = gold) }
+                                    }
+                                    if (onlineSignedIn) {
+                                        Text("● Signed in; 30 Online AI requests/day", color = Color(0xFF6DE7B0), fontSize = 11.sp)
+                                        OutlinedButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    runCatching { authRepository.signOut() }
+                                                    onlineSignedIn = false
+                                                    if (aiMode == "online") { aiMode = "local"; settings.edit().putString("ai_mode", "local").apply() }
+                                                    authStatus = "Signed out. Local AI remains available."
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, gold)
+                                        ) { Text("Sign out", color = gold) }
+                                    } else {
+                                        Text("Not signed in. Online AI needs an account in this Supabase project.", color = textSub, fontSize = 11.sp)
+                                    }
+                                    if (authStatus.isNotBlank()) Text(authStatus, color = textSub, fontSize = 11.sp, lineHeight = 16.sp)
                                 }
                             }
                         }
@@ -773,14 +885,14 @@ fun ANBHome() {
                             }
                         }
                         item {
-                            Text("ANB AI • Royal Edition 2.0", color = textSub, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            Text("ANB AI • Royal Edition 2.4", color = textSub, fontSize = 10.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
                 }
             }
 
             // Consistent royal navigation bar.
-            HorizontalDivider(color = Color(0xFF244775))
+            HorizontalDivider(color = Color(0xFFDCE6F7))
             val navItems = listOf(Triple("Home", "⌂", "Home"), Triple("Chat", "●", "Chat"), Triple("Voice", "♬", "Voice"), Triple("Tools", "⌘", "Tools"), Triple("Settings", "⚙", "Settings"))
             Row(
                 modifier = Modifier.fillMaxWidth().background(Color(0xFF031027)).padding(horizontal = 4.dp, vertical = 7.dp),
@@ -831,7 +943,7 @@ private fun SettingSwitchRow(
                 checkedThumbColor = Color(0xFF04132D),
                 checkedTrackColor = gold,
                 uncheckedThumbColor = textSub,
-                uncheckedTrackColor = Color(0xFF244775)
+                uncheckedTrackColor = Color(0xFFDCE6F7)
             )
         )
     }
