@@ -25,3 +25,15 @@ Model license shown by its model card: Apache-2.0.
 - The Qwen3 0.6B model file is about 614 MB. Runtime memory use is higher than the file size; some phones may be slow or may not have enough memory.
 - The first download needs internet. Model responses after download are local.
 - This patch has not been verified by GitHub Actions yet. Do not treat it as a successful build until the new workflow run is green and the APK artifact exists.
+
+
+## ANB AI v2.4 — Hybrid Local + Online AI
+
+- Added Local/Online AI mode selector in Settings. Local mode continues using the existing on-device model.
+- Added Supabase email/password sign-up and sign-in flow with locally stored app-private auth session and refresh-token support.
+- Added online request client calling the Supabase Edge Function; no OpenAI API key is embedded in Android.
+- Added the deployable Edge Function source and daily usage-limit migration to the repository.
+- Online mode requires a confirmed Supabase account and `OPENAI_API_KEY` configured in Supabase Edge Function Secrets.
+- Online requests are limited to 30 per signed-in account per UTC day.
+- Version display and Gradle versionName updated to 2.4.
+- Build/test status must be verified through GitHub Actions after syncing this patch.
